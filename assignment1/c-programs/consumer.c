@@ -1,98 +1,88 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <getopt.h>
-#include <signal.h>
+#include <fcntl.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/stat.h>
+#include <semaphore.h>
+#include "buffer.h"
+static int get_shared_memory() //connecting shared memory
+{
+    int shmid;
+    shmid = shmget(SHM_KEY,
+                   sizeof(shared_buffer),
+                   0666);
 
-volatile sig_atomic_t shutdown_flag = 0;
-
-int line_count = 0;
-int char_count = 0;
-
-void handle_sigint(int sig) {
-    shutdown_flag = 1;
-}
-
-void handle_sigusr1(int sig) {
-    fprintf(stderr,
-            "\nCurrent Statistics\n");
-    fprintf(stderr,
-            "Lines: %d\n",
-            line_count);
-    fprintf(stderr,
-            "Characters: %d\n",
-            char_count);
-}
-
-int main(int argc, char *argv[]) {
-    int opt;
-    int max_lines = -1;
-    int verbose = 0;
-
-    struct sigaction sa_int;
-    struct sigaction sa_usr1;
-
-    sa_int.sa_handler = handle_sigint;
-    sigemptyset(&sa_int.sa_mask);
-    sa_int.sa_flags = 0;
-    sigaction(SIGINT, &sa_int, NULL);
-
-    sa_usr1.sa_handler = handle_sigusr1;
-    sigemptyset(&sa_usr1.sa_mask);
-    sa_usr1.sa_flags = 0;
-    sigaction(SIGUSR1, &sa_usr1, NULL);
-
-    while ((opt = getopt(argc, argv, "n:v")) != -1) {
-        switch (opt) {
-            case 'n':
-                max_lines = atoi(optarg);
-                break;
-
-            case 'v':
-                verbose = 1;
-                break;
-
-            default:
-                fprintf(stderr,
-                        "Usage: %s [-n max_lines] [-v]\n",
-                        argv[0]);
-                return 1;
-        }
+    if (shmid == -1)
+    {
+        perror("shmget");
+        exit(EXIT_FAILURE);
     }
 
-    char line[4096];
-    int i;
+    return shmid;
+}
 
-    while (!shutdown_flag &&
-           fgets(line, sizeof(line), stdin) != NULL) {
-
-        if (max_lines != -1 &&
-            line_count >= max_lines) {
-            break;
-        }
-
-        line_count++;
-
-        i = 0;
-
-        while (line[i] != '\0') {
-            char_count++;
-            i++;
-        }
-
-        if (verbose) {
-            printf("%s", line);
-        }
+static void open_semaphores(sem_t **empty, sem_t **full, sem_t **mutex) //open sephamores
+{
+    *empty = sem_open(SEM_EMPTY, 0);
+    *full  = sem_open(SEM_FULL, 0);
+    *mutex = sem_open(SEM_MUTEX, 0);
+    if (*empty == SEM_FAILED ||
+        *full  == SEM_FAILED ||
+        *mutex == SEM_FAILED)
+    {
+        perror("sem_open");
+        exit(EXIT_FAILURE);
     }
+}
 
-    fprintf(stderr,
-            "\nFinal Statistics\n");
-    fprintf(stderr,
-            "Lines processed: %d\n",
-            line_count);
-    fprintf(stderr,
-            "Characters processed: %d\n",
-            char_count);
+int main(int argc, char *argv[])
+{
+    if (argc != 3)
+    {
+        printf("Usage: %s <consumer_id> <num_items>\n",
+               argv[0]);
+        return 1;
+    }
+    int consumer_id = atoi(argv[1]);
+    int num_items   = atoi(argv[2]);
+    int shmid = get_shared_memory();
+    shared_buffer_t *buffer =
+        (shared_buffer_t *)shmat(shmid, NULL, 0);
+    if (buffer == (void *)-1)
+    {
+        perror("shmat");
+        return 1;
+    }
+    sem_t *empty;
+    sem_t *full;
+    sem_t *mutex;
+    open_semaphores(&empty,
+                    &full,
+                    &mutex);
 
+    for (int i = 0; i < num_items; i++)
+    {
+        item_t item;
+        sem_wait(full); //wait until item exists
+        sem_wait(mutex); //enter critical sectiob
+        item = buffer->buffer[buffer->tail]; //remove item
+        buffer->tail =
+            (buffer->tail) % BUFFER_SIZE;
+        buffer->count--;
+        printf("Consumer %d: Consumed value %d from Producer %d\n",
+               consumer_id,
+               item.value,
+               item.producer_id);
+        sem_post(mutex); //leave critical section
+        sem_post(empty); //notify producer that slot free
+
+        usleep(150000);
+    }
+    shmdt(buffer);
+    sem_close(empty);
+    sem_close(full);
+    sem_close(mutex);
     return 0;
 }
