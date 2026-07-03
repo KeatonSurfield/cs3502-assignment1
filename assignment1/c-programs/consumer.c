@@ -11,7 +11,7 @@ static int get_shared_memory() //connecting shared memory
 {
     int shmid;
     shmid = shmget(SHM_KEY,
-                   sizeof(shared_buffer),
+                   sizeof(shared_buffer_t),
                    0666);
 
     if (shmid == -1)
