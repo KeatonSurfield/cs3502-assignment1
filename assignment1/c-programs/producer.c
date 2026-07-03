@@ -57,8 +57,7 @@ int main(int argc, char *argv[])
     if (buffer->head == 0 && //starts buffer once
         buffer->tail == 0 &&
         buffer->count == 0)
-    {
-        /* Already effectively initialized. */
+    {   
     }
     sem_t *empty;
     sem_t *full;
