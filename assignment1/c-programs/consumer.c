@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
         sem_wait(mutex); //enter critical sectiob
         item = buffer->buffer[buffer->tail]; //remove item
         buffer->tail =
-            (buffer->tail) % BUFFER_SIZE;
+            (buffer->tail + 1) % BUFFER_SIZE;
         buffer->count--;
         printf("Consumer %d: Consumed value %d from Producer %d\n",
                consumer_id,
