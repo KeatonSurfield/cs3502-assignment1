@@ -21,7 +21,7 @@ static int get_shared_memory() //attach to/create memory
     return shmid;
 }
 
-static void open_semaphores(sem_t **empty, //open semaphores
+static void open_semaphores(sem_t **empty, //create/open semaphores
                             sem_t **full,
                             sem_t **mutex)
 {
