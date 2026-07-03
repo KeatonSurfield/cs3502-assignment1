@@ -25,18 +25,9 @@ static void open_semaphores(sem_t **empty, //create/open semaphores
                             sem_t **full,
                             sem_t **mutex)
 {
-    *empty = sem_open(SEM_EMPTY,
-                      O_CREAT,
-                      0644,
-                      BUFFER_SIZE);
-    *full = sem_open(SEM_FULL,
-                     O_CREAT,
-                     0644,
-                     0);
-    *mutex = sem_open(SEM_MUTEX,
-                      O_CREAT,
-                      0644,
-                      1);
+    *empty = sem_open(SEM_EMPTY, O_CREAT, 0644, BUFFER_SIZE);
+    *full = sem_open(SEM_FULL, O_CREAT, 0644, 0);
+    *mutex = sem_open(SEM_MUTEX, O_CREAT, 0644, 1);
     if (*empty == SEM_FAILED ||
         *full == SEM_FAILED ||
         *mutex == SEM_FAILED)
