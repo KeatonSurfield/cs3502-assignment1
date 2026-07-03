@@ -1,3 +1,5 @@
+//Assignment A2
+//Keaton Surfield
 #ifndef BUFFER_H
 #define BUFFER_H
 #include <sys/ipc.h>
